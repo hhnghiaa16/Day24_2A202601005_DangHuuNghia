@@ -1,61 +1,66 @@
-# src/api/main.py
-from fastapi import FastAPI, Depends, HTTPException
-from fastapi.responses import JSONResponse
+from pathlib import Path
+
 import pandas as pd
+from fastapi import Depends, FastAPI
+from fastapi.responses import JSONResponse
+
 from src.access.rbac import get_current_user, require_permission
 from src.pii.anonymizer import MedVietAnonymizer
+
+RAW_DATA_PATH = Path("data/raw/patients_raw.csv")
+ANON_DATA_PATH = Path("data/processed/patients_anonymized.csv")
 
 app = FastAPI(title="MedViet Data API", version="1.0.0")
 anonymizer = MedVietAnonymizer()
 
-# --- ENDPOINT 1 ---
+
+def _load_raw_patients() -> pd.DataFrame:
+    return pd.read_csv(RAW_DATA_PATH)
+
+
 @app.get("/api/patients/raw")
 @require_permission(resource="patient_data", action="read")
-async def get_raw_patients(
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    TODO: Trả về raw patient data (chỉ admin được phép).
-    Load từ data/raw/patients_raw.csv
-    Trả về 10 records đầu tiên dưới dạng JSON.
-    """
-    pass
+async def get_raw_patients(current_user: dict = Depends(get_current_user)):
+    df = _load_raw_patients()
+    return JSONResponse(content=df.head(10).to_dict(orient="records"))
 
-# --- ENDPOINT 2 ---
+
 @app.get("/api/patients/anonymized")
 @require_permission(resource="training_data", action="read")
-async def get_anonymized_patients(
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    TODO: Trả về anonymized data (ml_engineer và admin được phép).
-    Load raw data → anonymize → trả về JSON.
-    """
-    pass
+async def get_anonymized_patients(current_user: dict = Depends(get_current_user)):
+    df = _load_raw_patients()
+    df_anon = anonymizer.anonymize_dataframe(df)
 
-# --- ENDPOINT 3 ---
+    ANON_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    df_anon.to_csv(ANON_DATA_PATH, index=False)
+
+    return JSONResponse(content=df_anon.head(10).to_dict(orient="records"))
+
+
 @app.get("/api/metrics/aggregated")
 @require_permission(resource="aggregated_metrics", action="read")
-async def get_aggregated_metrics(
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    TODO: Trả về aggregated metrics (data_analyst, ml_engineer, admin).
-    Ví dụ: số bệnh nhân theo từng loại bệnh (không có PII).
-    """
-    pass
+async def get_aggregated_metrics(current_user: dict = Depends(get_current_user)):
+    df = _load_raw_patients()
+    metrics = {
+        "total_patients": int(len(df)),
+        "by_condition": df["benh"].value_counts().to_dict(),
+        "avg_lab_result": float(df["ket_qua_xet_nghiem"].mean()),
+    }
+    return metrics
 
-# --- ENDPOINT 4 ---
+
 @app.delete("/api/patients/{patient_id}")
 @require_permission(resource="patient_data", action="delete")
 async def delete_patient(
     patient_id: str,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
-    """
-    TODO: Chỉ admin được xóa. Các role khác nhận 403.
-    """
-    pass
+    return {
+        "status": "deleted",
+        "patient_id": patient_id,
+        "message": "Simulated delete. Production should use soft delete and audit logs.",
+    }
+
 
 @app.get("/health")
 async def health():

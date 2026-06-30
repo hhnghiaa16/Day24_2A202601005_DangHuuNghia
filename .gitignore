@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local secrets and keys
+.vault_key
+.vault_key_solution
+*.pem
+*.key
+
+# Lab-generated sensitive/raw data
+medviet-governance/data/raw/
+data/raw/
+
+# Generated reports and local artifacts
+reports/
+.spacy_models/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
